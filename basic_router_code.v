@@ -317,11 +317,19 @@ module router_new(
   //-----------------------------------------------
                 // Adwaith's changes
 
-    // reg [3:0] trust_N = 0;  // Trust level for North direction
-    // reg [3:0] trust_S = 0;  // Trust level for South direction
-    // reg [3:0] trust_E = 0;  // Trust level for East direction
-    // reg [3:0] trust_W = 0;  // Trust level for West direction
-    // parameter delta_x = 0.0001;  // Trust increment/decrement value
+    reg [3:0] trust_N = 0;  // Trust level for North direction
+    reg [3:0] trust_S = 0;  // Trust level for South direction
+    reg [3:0] trust_E = 0;  // Trust level for East direction
+    reg [3:0] trust_W = 0;  // Trust level for West direction
+    parameter delta_x = 0.0001;  // Trust increment/decrement value
+
+    wire is_ack_packet;
+
+    reg [128-1:0] ack_packet;  // Declare ack_packet with the appropriate size
+
+    wire [1:0] path_history;  // 2 bits for N, S, E, W
+
+
 
   //------------------------------------------------
  
@@ -2048,24 +2056,55 @@ module router_new(
         always @ (posedge clk2)
         
         
+            if (is_ack_packet) begin  // Assuming you have a way to identify ack packets
+                path_history <= ack_packet[1:0];  // Extract the last 2 bits for path_history
+                case (path_history)  // Check the last direction from the ack packet's path history
+                    NORTH: begin
+                        if (came_from_N) begin  // You'll need a way to identify where the ack came from
+                            trust_N <= trust_N + delta_x;  // Increase trust for North
+                        end
+                    end
+                    SOUTH: begin
+                        if (came_from_S) begin
+                            trust_S <= trust_S + delta_x;  // Increase trust for South
+                        end
+                    end
+                    EAST: begin
+                        if (came_from_E) begin
+                            trust_E <= trust_E + delta_x;  // Increase trust for East
+                        end
+                    end
+                    WEST: begin
+                        if (came_from_W) begin
+                            trust_W <= trust_W + delta_x;  // Increase trust for West
+                        end
+                    end
+                    default: ; // Handle unexpected cases
+                endcase
+            end
+
+            else
             begin
                 if(temp_n[127:125] > LOC_X)                                           // route computation for input from north
                     begin
-                        // trust_E <= trust_E - delta_x;                                 // Decrease trust for East                                                             
+                        trust_E <= trust_E - delta_x;                                 // Decrease trust for East                                                             
                         north_route           =  EAST;                                //
                     end                                                               //
                 else if(temp_n[127:125] < LOC_X)                                      
-                    begin                                                             //
+                    begin                  
+                        trust_W <= trust_W - delta_x;                                 //
                         north_route           =  WEST;                                //
                     end                                                               //
                 else                                                                  // found the X dimension movement 
                     begin                                                             //
                         if(temp_n[124:122] > LOC_Y)                                   //
-                            begin                                                     //
+                            begin        
+                                trust_N <= trust_N - delta_x;                         //
                                 north_route   = NORTH;                                //
                             end                                                       //
                          else if (temp_n[124:122] < LOC_X)                            //
-                            begin                                                     //
+                            begin         
+                                trust_S <= trust_S - delta_x;                         //
                                 north_route   = SOUTH;                                //
                             end                                                       //
                         else if (temp_n[127:122] == {LOC_X,LOC_Y})                    //
@@ -2080,20 +2119,24 @@ module router_new(
                     
                 if(temp_s[127:125] > LOC_X)                                          // route computation for  input from south
                         begin                                                        //
+                            trust_E <= trust_E - delta_x;
                             south_route           =  EAST;                           //
                         end                                                          //
                     else if(temp_s[127:125] < LOC_X)                                 //
                         begin                                                        //
+                            trust_S <= trust_S - delta_x;
                             south_route           =  WEST;                           //
                         end                                                          //
                     else                                                             //  found the x dimension movement 
                         begin                                                        //
                             if(temp_s[124:122] > LOC_Y)                              //
                                 begin                                                //
+                                    trust_E <= trust_E - delta_x;
                                     south_route   = EAST;                            //
                                 end                                                  //
                              else if (temp_s[124:122] < LOC_Y)                       //
                                 begin                                                //
+                                    trust_W <= trust_W - delta_x;
                                     south_route   = WEST;                            //
                                 end                                                  //
                             else if(temp_s[127:122] == {LOC_X,LOC_Y})                //
@@ -2107,20 +2150,24 @@ module router_new(
 
                 if(temp_e[127:125] > LOC_X)                                           // route computation of input from east
                         begin                                                         //
+                            trust_E <= trust_E - delta_x;
                             east_route           =  EAST;                             //
                         end                                                           //
                     else if(temp_e[127:125] < LOC_X)                                  
-                        begin                                                         //                
+                        begin                                                         //   
+                            trust_W <= trust_W - delta_x;             
                             east_route           =  WEST;                             //
                         end                                                           //found the X dimension movement
                     else                                                              // 
                         begin                                                         //
                             if(temp_e[124:122] > LOC_Y)                               //
                                 begin                                                 //
+                                    trust_E <= trust_E - delta_x;
                                     east_route   = NORTH;                             //
                                 end                                                   //
                              else if (temp_e[124:122] < LOC_Y)                        //
                                 begin                                                 //
+                                    trust_S <= trust_S - delta_x;
                                     east_route   = SOUTH;                             //
                                 end                                                   //
                             else if(temp_e[127:122] == {LOC_X,LOC_Y})                 //
@@ -2133,20 +2180,24 @@ module router_new(
 
                 if(temp_w[127:125] > LOC_X)                                           // route computing of input from weat
                         begin                                                         //
+                            trust_E <= trust_E - delta_x; 
                             west_route           =  EAST;                             //
                         end                                                           //
                     else if(temp_w[127:125] < LOC_X)                                  //
-                        begin                                                         //
+                        begin      
+                            trust_W <= trust_W - delta_x;                             //
                             west_route           =  WEST;                             //
                         end                                                           //
                     else                                                              //  found the X dimension movement 
                         begin                                                         //
                             if(temp_w[124:122] > LOC_Y)                               //
                                 begin                                                 //
+                                    trust_N <= trust_N - delta_x;
                                     west_route   = NORTH;                             //
                                 end                                                   //
                              else if (temp_w[124:122] < LOC_Y)                        //
                                 begin                                                 //
+                                    trust_S <= trust_S - delta_x;
                                     west_route   = SOUTH;                             //
                                 end                                                   //
                             else if(temp_w[127:122]== {LOC_X,LOC_Y})                  //
@@ -2160,20 +2211,24 @@ module router_new(
 
                 if(temp_t[127:125] > LOC_X)                                           // route computation for input from local
                         begin                                                         //
+                            trust_E = trust_E - delta_x;
                             local_route           =  EAST;                            //
                         end                                                           //
                     else if(temp_t[127:125] < LOC_X)                                  //
                         begin                                                         //
+                            trust_W = trust_W - delta_x;
                             local_route           =  WEST;                            //
                         end                                                           //
                     else                                                              //found the X dimension movement 
                         begin                                                         //
                             if(temp_t[124:122] > LOC_Y)                               //
                                 begin                                                 //
+                                    trust_N = trust_N - delta_x;
                                     local_route   = NORTH;                            //
                                 end                                                   //
                              else if (temp_t[124:122] < LOC_Y)                        //
                                 begin                                                 //
+                                    trust_S = trust_S - delta_x;
                                     local_route   = SOUTH;                            //
                                 end                                                   //
                              else if(temp_t[127:122] == {LOC_X,LOC_Y})                //
