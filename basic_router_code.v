@@ -323,11 +323,19 @@ module router_new(
     reg [3:0] trust_W = 0;  // Trust level for West direction
     parameter delta_x = 0.0001;  // Trust increment/decrement value
 
-    wire is_ack_packet;
+    reg came_from_N, came_from_E, came_from_W, came_from_S;  // Define direction registers
 
-    reg [128-1:0] ack_packet;  // Declare ack_packet with the appropriate size
 
-    wire [1:0] path_history;  // 2 bits for N, S, E, W
+    reg [1:0] is_ack_packet;
+
+    always @(posedge clk1) begin
+        is_ack_packet <= $random % 2; // Generates a random number between 0 and 1
+    end
+
+
+    reg [128-1:0] ack_packet = 128'b;  // Declare ack_packet with the appropriate size
+
+    reg [1:0] path_history;  // 2 bits for N, S, E, W
 
 
 
@@ -2058,26 +2066,19 @@ module router_new(
         
             if (is_ack_packet) begin  // Assuming you have a way to identify ack packets
                 path_history <= ack_packet[1:0];  // Extract the last 2 bits for path_history
+
                 case (path_history)  // Check the last direction from the ack packet's path history
                     NORTH: begin
-                        if (came_from_N) begin  // You'll need a way to identify where the ack came from
-                            trust_N <= trust_N + delta_x;  // Increase trust for North
-                        end
+                            trust_N <= trust_N + delta_x;
                     end
                     SOUTH: begin
-                        if (came_from_S) begin
                             trust_S <= trust_S + delta_x;  // Increase trust for South
-                        end
                     end
                     EAST: begin
-                        if (came_from_E) begin
                             trust_E <= trust_E + delta_x;  // Increase trust for East
-                        end
                     end
                     WEST: begin
-                        if (came_from_W) begin
                             trust_W <= trust_W + delta_x;  // Increase trust for West
-                        end
                     end
                     default: ; // Handle unexpected cases
                 endcase
